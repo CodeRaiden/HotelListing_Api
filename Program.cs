@@ -11,6 +11,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using HotelListing_Api.Data;
+using Microsoft.EntityFrameworkCore;
+using HotelListing_Api.Configurations;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +25,50 @@ builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
+// Twelveth
+// Now we will go and include the fields for our Country and Hotel classes in the
+// Country.cs and Hotel.cs files
+
+// Thirteenth
+// we will go to the Package manager console by clicking on "tools", and then clicking on
+// "nuget package manager" and then on "package manager console"
+// And there is where the EntityFramework.Tools comes in, as this will allow us to scafold/create our
+// database in the remote server
+// the first thing we need to do in the PMC is to add a Migration name "DatabaseCreated" using the code below
+// Add-Migration DatabaseCreated
+// when we run this command in the PMC, we will find that a new folder has been created called
+// Migrations, which contains a file with a snapshot of what each instance/object(i.e Country and Hotel objects)
+// will look like in the database when it is created.
+// So next we will create the Database using the code below
+// Update-Database
+// Now to check the creeated database, we will need to click on "View" above and click on
+// "Sql Server Object Explorer"
+// then there we will expand the in built "(localdb)\MSSQLLOCALDB" and
+// then we will expand the "Databases", and then we expand the created "Hotellisting_db" database
+
+
+// Fourteenth
+// SEEDING DATA INTO THE DATABASE
+// To seed data into the database we will navigate to the DatabaseContext.cs file
+
+
+// Fifteenth
+// SET UP SERVICE REPOSITORIES AND DEPENDENCY INJECTION
+//To get this started we are going to be creating two new folders "IRepository" and "Repository"
+//we will be using the "Separation of Concerns" concept, where we want to make sure that every file is responsible for only a particular task
+//to keep things Generic, making sure there is no repeatition of anything
+
+//So in the "IRepository" folder, we will create a public Interface, and we will call it "IGenericRepository"
+
+// Sixteenth
+// SETTING UP DTO (DATA TRANSFER OBJECT) AND USING AUTOMAPPER TO AUTOMATE
+// THE PROCESS OF LINKING OUR DTO TO THE DOMAIN OBJECTS
+// So then we can think of DTO's as a midle layer which will enforce certain validations at the frontend part of the application amongst other things
+// So we can use DTO to sanitize our data before it actually gets over to our actual data Class (Country or Hotel and via extension, our database)
+// To create the DTO's to interface with our classes, first we need to create a folder called Models which will contain the DTO Models of our actual data Class
+//(Country or Hotel and via extension, our database).
+//Now Inside of the Models folder, we generally have a number of classes that represents each variation of a request relative to each Domain Object (Country and Hotel)
 
 // Sixth
 // here to configure the CORS (Cross Origin Resourse Sharing), we will first add the
@@ -49,7 +96,21 @@ builder.Services.AddCors(cor =>
     );
 });
 
+// Add the AutoMapper Service of Type "MapperInitializer" for the Mapping between the Domain Classes and the DTO Models
+// when we start developing our endpoints we will actually get to see the power of AutoMapper and how the DTO's work and
+// how everything relates to the Data Classes
+// So getting the configurations of the Domain Classes, The DTO Models and the AutoMapper out of the way, is very important for that.
+builder.Services.AddAutoMapper(typeof(MapperInitializer));
+// So with this milestoe crossed we can now check in the Migation to Github
+// to do this we can click on the "Git Changes" next to "Solutons Explorer"
+// or if the option is missing, you can click on "View" and navigate to the "Git Changes" option from there
+// and after including the Migration comment in the text box, you can commit the changes by clicking on the
+// "Commit All" drop box arrow and then select ""
+
 builder.Services.AddSwaggerGen();
+
+////placing the AddControllers service as the last service added to our file
+//builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -74,7 +135,7 @@ app.UseHttpsRedirection();
 
 // Seventh
 // Ensuring that the application knows that it should use the set cors policy "corspolicy"
-app.UseCors("AllowAll");
+app.UseCors("AllowAll"); 
 
 app.UseAuthorization();
 
@@ -107,7 +168,7 @@ Log.Logger = new LoggerConfiguration()
         // logger using the ".CreateLogger();"as seen below
         ).CreateLogger();
 
-// So now that we have the Logger created we can actually satrt using it
+// So now that we have the Logger created we can actually start using it
 // to do this we are going to wrap the appication "app.run();" in a try catch
 try
 {
