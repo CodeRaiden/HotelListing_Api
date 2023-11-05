@@ -31,7 +31,7 @@ namespace HotelListing_Api.Models
 
         // To include the CountryDTO object here which the user will now need to have access to, when a Hotel is created,
         // we will need to create a field to hold the object of type ContryDTO as done below
-        public CountryDTO CountryId { get; set; }
+        public CountryDTO Country { get; set; }
     }
     
 }

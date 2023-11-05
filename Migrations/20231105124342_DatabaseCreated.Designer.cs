@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HotelListing_Api.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20231026172300_DatabaseCreated")]
+    [Migration("20231105124342_DatabaseCreated")]
     partial class DatabaseCreated
     {
         /// <inheritdoc />
@@ -43,6 +43,26 @@ namespace HotelListing_Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Countries");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Name = "Jamaica",
+                            ShortName = "JAM"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Name = "Bahamas",
+                            ShortName = "BAH"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Name = "Cayman Islands",
+                            ShortName = "CAI"
+                        });
                 });
 
             modelBuilder.Entity("HotelListing_Api.Data.Hotel", b =>
@@ -64,26 +84,56 @@ namespace HotelListing_Api.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Rating")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<double>("Rating")
+                        .HasColumnType("float");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CountryId");
 
                     b.ToTable("Hotels");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Address = "Negril",
+                            CountryId = 1,
+                            Name = "Sandals Resort and Spa",
+                            Rating = 4.2999999999999998
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Address = "George Town",
+                            CountryId = 3,
+                            Name = "Comfort Suits",
+                            Rating = 4.5
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Address = "Nassua",
+                            CountryId = 2,
+                            Name = "Grand Palladium",
+                            Rating = 4.0
+                        });
                 });
 
             modelBuilder.Entity("HotelListing_Api.Data.Hotel", b =>
                 {
                     b.HasOne("HotelListing_Api.Data.Country", "Country")
-                        .WithMany()
+                        .WithMany("Hotels")
                         .HasForeignKey("CountryId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Country");
+                });
+
+            modelBuilder.Entity("HotelListing_Api.Data.Country", b =>
+                {
+                    b.Navigation("Hotels");
                 });
 #pragma warning restore 612, 618
         }

@@ -14,6 +14,9 @@ using System.Threading.Tasks;
 using HotelListing_Api.Data;
 using Microsoft.EntityFrameworkCore;
 using HotelListing_Api.Configurations;
+using HotelListing_Api.IRepository;
+using HotelListing_Api.Repository;
+using Microsoft.Data.SqlClient;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,7 +26,7 @@ var builder = WebApplication.CreateBuilder(args);
 // include serilog in the http request pipeline
 builder.Host.UseSerilog();
 
-builder.Services.AddControllers();
+//builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 
 // Twelveth
@@ -96,6 +99,15 @@ builder.Services.AddCors(cor =>
     );
 });
 
+// here we will register the DatabaseContext.cs here in the programs.cs file so as to enable it available application wide via Dependency Injection
+// first for this we will need to get the ConnectionString "sqlConnection" and store it in a variable to be used proide the connection settings for the DatabaseContext
+string connectionString = builder.Configuration.GetConnectionString("sqlConnection");
+builder.Services.AddDbContext<DatabaseContext>(options =>
+    options.UseSqlServer(connectionString, op => 
+    {
+        op.EnableRetryOnFailure();
+    }));
+
 // Add the AutoMapper Service of Type "MapperInitializer" for the Mapping between the Domain Classes and the DTO Models
 // when we start developing our endpoints we will actually get to see the power of AutoMapper and how the DTO's work and
 // how everything relates to the Data Classes
@@ -105,12 +117,34 @@ builder.Services.AddAutoMapper(typeof(MapperInitializer));
 // to do this we can click on the "Git Changes" next to "Solutons Explorer"
 // or if the option is missing, you can click on "View" and navigate to the "Git Changes" option from there
 // and after including the Migration comment in the text box, you can commit the changes by clicking on the
-// "Commit All" drop box arrow and then select ""
+// "Commit All" drop box arrow and then select "Commit All And Sync"
+// this when working on a collaboration project with pairs will push up your changes, get the latest ones, and if you and a par modify the same files,
+// then this will result to a merge conflict.
+// but if you are not modifying the same file as your pair or you are working alone, then this will be a seemless process.
+
+// Registering the Controller
+// Here below AddTransient means that every time it is needed, a new instance/object would be created.
+// there are also others like AddSingleton and AddScoped means that a new instance is created for a period or for a life time of a certain set of requests.
+// AddSingleton means that only one instance will exist for the entire duration of the application.
+// AddTransient here means that when ever anyone hits the controller, a fresh copy of the object/instance of the "IUnitOfWork" and "UnitOfWork" is generated
+// So which ever you pick will be depending on your need.
+builder.Services.AddTransient<IUnitOfWork, UnitOfWork>();
+// After registering the Controller, we can test this out on Postman using the "Get" Route Controller path "https://localhost:7131/api/Country"
+// but before we do we will need to install a Nuget package "Microsoft.AspNetCore.Mvc.NewtonsoftJson" to handle the retrieving/getting of information from the API. this is because the Country
+// table links to the Hotels and the Hotel links to the specific Country and this link continues in a loop. and so as a result of this unending "Reference Loop", the web server is not exactly clear on what it is suposed to be retrieving.
+// After installing the "Microsoft.AspNetCore.Mvc.NewtonsoftJson" package, we can then go on to Add it to our "builder.Service.AddControllers();" line code here, just below the "builder.Services.AddSwaggerGen();" line code.
 
 builder.Services.AddSwaggerGen();
 
-////placing the AddControllers service as the last service added to our file
-//builder.Services.AddControllers();
+// placing the AddControllers service as the last service added to our AddControllers() method, and then in the lambda operation configuration we will pull the "SerializerSettings" and then from this we will pull the "ReferenceLoopHandling"
+// (which is an Enum) and ignore it.
+// All this is actually saying is that when the web execution sees a Reference Loop happening, then it should be ignored. we will ignore this by setting the value to the set "Newtonsoft.Json.ReferenceLoopHandling.Ignore" property
+// here we will pull the "AddNewtonsoftJson" from our 
+builder.Services.AddControllers().AddNewtonsoftJson(op =>
+    op.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
+    );
+// Now one last thing we will need to do is to make sure that the CountryController is mapped to the CountryDTO and not the actual Domain Country Class
+// So we will need to navigate to the CountryController.cs file to do this
 
 var app = builder.Build();
 
@@ -138,6 +172,23 @@ app.UseHttpsRedirection();
 app.UseCors("AllowAll"); 
 
 app.UseAuthorization();
+
+
+//// Using The Convention Based Routing
+//app.UseEndpoints(endpoints => 
+//    // here we will define the map controller route
+//    endpoints.MapControllerRoute(
+//        // first the name
+//        name: "default",
+//        // then the route pattern
+//        // and here we will need to be very specific in our route where we will specify the path to the exact endpoint
+//        // this will be okay for an MVC application, but for REAST API standard application, this will require the verb
+//        // to determine what it is we will be doing with the route. And so we will be making use of "Attribute Routing"
+//        // instead of this("Convention Based Routing").
+//        pattern: "{countroller=Home}/{action=Index}/{id?}"
+//        )
+//);
+
 
 app.MapControllers();
 

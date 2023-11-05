@@ -52,13 +52,13 @@ namespace HotelListing_Api.Migrations
                         {
                             Id = 2,
                             Name = "Bahamas",
-                            ShortName = "BHS"
+                            ShortName = "BAH"
                         },
                         new
                         {
                             Id = 3,
                             Name = "Cayman Islands",
-                            ShortName = "CMI"
+                            ShortName = "CAI"
                         });
                 });
 
@@ -95,7 +95,7 @@ namespace HotelListing_Api.Migrations
                         {
                             Id = 1,
                             Address = "Negril",
-                            CountryId = 3,
+                            CountryId = 1,
                             Name = "Sandals Resort and Spa",
                             Rating = 4.2999999999999998
                         },
@@ -120,12 +120,17 @@ namespace HotelListing_Api.Migrations
             modelBuilder.Entity("HotelListing_Api.Data.Hotel", b =>
                 {
                     b.HasOne("HotelListing_Api.Data.Country", "Country")
-                        .WithMany()
+                        .WithMany("Hotels")
                         .HasForeignKey("CountryId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Country");
+                });
+
+            modelBuilder.Entity("HotelListing_Api.Data.Country", b =>
+                {
+                    b.Navigation("Hotels");
                 });
 #pragma warning restore 612, 618
         }

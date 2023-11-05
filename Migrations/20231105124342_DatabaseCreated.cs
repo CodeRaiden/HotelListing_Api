@@ -2,6 +2,8 @@
 
 #nullable disable
 
+#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
+
 namespace HotelListing_Api.Migrations
 {
     /// <inheritdoc />
@@ -32,7 +34,7 @@ namespace HotelListing_Api.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Address = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Rating = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Rating = table.Column<double>(type: "float", nullable: false),
                     CountryId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
@@ -44,6 +46,26 @@ namespace HotelListing_Api.Migrations
                         principalTable: "Countries",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.InsertData(
+                table: "Countries",
+                columns: new[] { "Id", "Name", "ShortName" },
+                values: new object[,]
+                {
+                    { 1, "Jamaica", "JAM" },
+                    { 2, "Bahamas", "BAH" },
+                    { 3, "Cayman Islands", "CAI" }
+                });
+
+            migrationBuilder.InsertData(
+                table: "Hotels",
+                columns: new[] { "Id", "Address", "CountryId", "Name", "Rating" },
+                values: new object[,]
+                {
+                    { 1, "Negril", 1, "Sandals Resort and Spa", 4.2999999999999998 },
+                    { 2, "George Town", 3, "Comfort Suits", 4.5 },
+                    { 3, "Nassua", 2, "Grand Palladium", 4.0 }
                 });
 
             migrationBuilder.CreateIndex(

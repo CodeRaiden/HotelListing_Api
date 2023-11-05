@@ -1,6 +1,10 @@
 ﻿using HotelListing_Api.Data;
 using HotelListing_Api.IRepository;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace HotelListing_Api.Repository
 {
@@ -10,8 +14,8 @@ namespace HotelListing_Api.Repository
         private readonly DatabaseContext _context;
 
         // next we need to create private IGenericRepository class fields of the Country and Hotel Type
-        private IGenericRepository<Country> _countries;
-        private IGenericRepository<Hotel> _hotels;
+        private IGenericRepository<Country>? _countries;
+        private IGenericRepository<Hotel>? _hotels;
 
         public UnitOfWork(DatabaseContext context)
         {
