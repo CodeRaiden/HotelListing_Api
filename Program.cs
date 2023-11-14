@@ -17,6 +17,12 @@ using HotelListing_Api.Configurations;
 using HotelListing_Api.IRepository;
 using HotelListing_Api.Repository;
 using Microsoft.Data.SqlClient;
+using Microsoft.AspNetCore.Identity;
+using HotelListing_Api;
+using HotelListing_Api.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,6 +79,14 @@ builder.Host.UseSerilog();
 //(Country or Hotel and via extension, our database).
 //Now Inside of the Models folder, we generally have a number of classes that represents each variation of a request relative to each Domain Object (Country and Hotel)
 
+
+// Seventeenth
+// SECURING YOUR API
+// the first security we will be implementing will be for Authentication, which we will be implementing
+// in the DatabaseContext.cs file.
+
+
+
 // Sixth
 // here to configure the CORS (Cross Origin Resourse Sharing), we will first add the
 // service, and then in it's parenthesis we will add the policy/configuration on how we
@@ -99,14 +113,85 @@ builder.Services.AddCors(cor =>
     );
 });
 
+
 // here we will register the DatabaseContext.cs here in the programs.cs file so as to enable it available application wide via Dependency Injection
 // first for this we will need to get the ConnectionString "sqlConnection" and store it in a variable to be used proide the connection settings for the DatabaseContext
-string connectionString = builder.Configuration.GetConnectionString("sqlConnection");
+string? connectionString = builder.Configuration.GetConnectionString("sqlConnection");
 builder.Services.AddDbContext<DatabaseContext>(options =>
     options.UseSqlServer(connectionString, op => 
     {
         op.EnableRetryOnFailure();
     }));
+
+
+//// SECURING YOUR API
+//
+//
+//// SETTING UP USER IDENTITY CORE
+// so now what we need to do here is to configure our Identity sevice to know which class is going
+// to be used to infer the tables that will be generated.
+// So then basically what we want to happen here is that we are telling the application that from the
+// start of the application, we want to use our "Identity" Services
+// the identity services will be based on a database connection that connects to a database
+// that has tables to facilitate "Identity" related things such as "user storage", "role storage", "claims" etc.
+// so what we need to do now is to configure the Identity Services to know which class is going to inform how
+// the user's table should look, and if potentally there exists another for roles, then also how the role's table
+// should look etc.
+// So already included at our disposal for this, is the Class called "IdentityUser", which also allows us to add
+// more fields to it's already existing fields depending on the table we want included in the class for our authentication.
+// we will also first need to include another Class "ApiUser.cs" inside the "Data" folder. This will be the class to
+// inform how the user's table should look.
+// Now, after doing creating the ApiUser class and doing the necessary modifications on the DatabaseContext file, we can now
+// finally add the Identity services here.
+// but in order not to overwhelm the program.cs file with too much infomation, we can simply just create another class file "ServiceExtensions"
+// to extend our services.
+builder.Services.AddAuthentication();
+builder.Services.ConfigureIdentity();
+// so we can basically start looking at things this way from now on, where if we are not adding a one liner code like the "builder.Services.ConfigureIdentity();"
+// line code above, we can simply extract the configurations method to an external file and then include the single line method call here, there by simplifying our program.cs code file
+// So now we need to add a Migration to the database to implement the change (the accomodation of the identity tables) made to the Daytabase via the DatabaseContext file, using the code below inside the PMC
+// Add-Migration AddedIdentity
+// Next we can update the database using the code below
+// Update-Database
+
+// here we will include the configuration for the JWT Service
+builder.Services.ConfigureJWT(builder.Configuration);
+// or
+//var jwtIssuer = builder.Configuration.GetSection("Jwt:Issuer").Value;
+//var jwtKey = builder.Configuration.GetSection("Jwt:Key").Value;
+
+//builder.Services.AddAuthentication(opt =>
+//{
+//    // here for the Default Authenticate Scheme, we will need to get the nuget package "Microsoft.AspNetCore.Authentication.JwtBearer"
+//    // and then set the option's "DefaultAuthenticateScheme" property to the JwtBearer's default
+//    // Authentication Scheme.
+//    opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+//    // and also what ever information comes across the API system, we also want to challenge it with the JwtBearer's default
+//    // Authentication Scheme
+//    opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+
+//    // we are also going to chain the defined AddAuthentication configuration here with the
+//    // AddJwtBearer configuration as done below
+//})
+// .AddJwtBearer(options =>
+// {
+//     options.TokenValidationParameters = new TokenValidationParameters
+//     {
+//         ValidateIssuer = true,
+//         ValidateLifetime = true,
+//         ValidateIssuerSigningKey = true,
+//         ValidIssuer = jwtIssuer,
+//         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+//     };
+// });
+
+
+// after including the JWT Service here, the next thing we would need to do is to create
+// some functionality for the validation and the isuuing of the Token
+// And for this we will need to create another folder called "Services"
+// for the Extensions (such as the JWT). And in the folder we will create an Interface file called "IAuthManager"
+// which will be the Interface for managing the JWT authentification.
+
 
 // Add the AutoMapper Service of Type "MapperInitializer" for the Mapping between the Domain Classes and the DTO Models
 // when we start developing our endpoints we will actually get to see the power of AutoMapper and how the DTO's work and
@@ -124,7 +209,7 @@ builder.Services.AddAutoMapper(typeof(MapperInitializer));
 
 // Registering the Controller
 // Here below AddTransient means that every time it is needed, a new instance/object would be created.
-// there are also others like AddSingleton and AddScoped means that a new instance is created for a period or for a life time of a certain set of requests.
+// there are also others like AddScoped means that a new instance is created for a period or for a life time of a certain set of requests.
 // AddSingleton means that only one instance will exist for the entire duration of the application.
 // AddTransient here means that when ever anyone hits the controller, a fresh copy of the object/instance of the "IUnitOfWork" and "UnitOfWork" is generated
 // So which ever you pick will be depending on your need.
@@ -133,6 +218,10 @@ builder.Services.AddTransient<IUnitOfWork, UnitOfWork>();
 // but before we do we will need to install a Nuget package "Microsoft.AspNetCore.Mvc.NewtonsoftJson" to handle the retrieving/getting of information from the API. this is because the Country
 // table links to the Hotels and the Hotel links to the specific Country and this link continues in a loop. and so as a result of this unending "Reference Loop", the web server is not exactly clear on what it is suposed to be retrieving.
 // After installing the "Microsoft.AspNetCore.Mvc.NewtonsoftJson" package, we can then go on to Add it to our "builder.Service.AddControllers();" line code here, just below the "builder.Services.AddSwaggerGen();" line code.
+
+// here we will register the IAuthManager and AuthManager service
+// to do this we will use the Builder.Services.AddScoped() method to register both files here, this means that a new instance is created for a period or for a life time of a certain set of requests and Mapping the IAuthManager file to the AuthManager file
+builder.Services.AddScoped<IAuthManager, AuthManager>();
 
 builder.Services.AddSwaggerGen();
 
@@ -169,10 +258,14 @@ app.UseHttpsRedirection();
 
 // Seventh
 // Ensuring that the application knows that it should use the set cors policy "corspolicy"
-app.UseCors("AllowAll"); 
+app.UseCors("AllowAll");
+
+app.UseRouting();
+
+// to create an authorized access to an endpoint, we will need to include the middle ware "app.UseAuthentication();"
+app.UseAuthentication();
 
 app.UseAuthorization();
-
 
 //// Using The Convention Based Routing
 //app.UseEndpoints(endpoints => 

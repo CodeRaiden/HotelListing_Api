@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using HotelListing_Api.IRepository;
 using HotelListing_Api.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore.Query;
@@ -29,7 +30,7 @@ namespace HotelListing_Api.Controllers
 
         // Now here we can go on to include our routes
 
-        // First the Route Function to get all Countries
+        // First the Route Function to get all Hotels
         [HttpGet]
         // here we can also Inform swagger of the the expected response type
         // using the Data anotations below. so that swagger does not interpret it as undocumented
@@ -62,12 +63,19 @@ namespace HotelListing_Api.Controllers
             }
         }
 
-        // Next we will create an endpoint for getting a single Country element from the database
+        // Next we will create an endpoint for getting a single Hotel element from the database
         // heer the difference is we are going to state to the datanotation decorator that we need to
         // get the country by it's id which should be an integer
+
+        // In order to prevent an Authorized user access to the endpoint we can include the authorized verb
+        // Authorize inside the [HttpGet("{id:int}")] data anotation "[HttpGet("{id:int}"), Authorize]", or
+        // we can create another data anotation for the Authorize verb "[Authorize]" and that's what we will do.
+        // TESTING THE AUTHORIZE ENDPOINT
+        
         [HttpGet("{id:int}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [Authorize]
         public async Task<IActionResult> GetHotel(int id)
         {
             try
