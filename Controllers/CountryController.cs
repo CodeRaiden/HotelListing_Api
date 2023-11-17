@@ -1,8 +1,12 @@
 ﻿using AutoMapper;
+using HotelListing_Api.Data;
 using HotelListing_Api.IRepository;
 using HotelListing_Api.Models;
+using HotelListing_Api.Repository;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Data;
 
 namespace HotelListing_Api.Controllers
 {
@@ -71,11 +75,11 @@ namespace HotelListing_Api.Controllers
                 return StatusCode(500, "Internal Server Error. Please Try Again Later.");
             }
         }
-        
+
         // Next we will create an endpoint for getting a single Country element from the database
         // here the difference is we are going to state to the datanotation decorator that we need to
         // get the country by it's id which should be an integer
-        [HttpGet("{id:int}")]
+        [HttpGet("{id:int}", Name = "GetCountry")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetCountry(int id)
@@ -96,18 +100,131 @@ namespace HotelListing_Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Something went wrong with the {nameof(GetCountry)}");
-                
+
                 return StatusCode(500, "Internal Server Error. Please Try Again Later.");
             }
         }
 
         // we can try the Get() method on postman using the link https://localhost:7131/api/Country/1
 
+        // CONSTRUCTING A POST ENDPOINT TO
+        // CREATE A COUNTRY
+        [Authorize(Roles = "Administrator")]
+        [HttpPost]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> CreateCountry([FromBody] CreateCountryDTO countryDTO)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogError($"Invalid Post Attempt in {nameof(CreateCountry)}");
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                // map the coutryDTO to the Country Database Model 
+                var country = _mapper.Map<Country>(countryDTO);
+                // Insert the country entry into the database
+                await _unitOfWork.Countries.Insert(country);
+                // comit the change
+                await _unitOfWork.Save();
+                return CreatedAtRoute("GetCountry", new { id = country.Id }, country);
+            }
+            catch (Exception ex)
+            {
+
+                _logger.LogError(ex, $"Something went wrong with the {nameof(CreateCountry)}");
+                return StatusCode(500, "Internal Server Error. Please Try Again Later.");
+            }
+        }
+
+
+        // CONSTRUCTING PUT ENDPOINT TO UPDATE A COUNTRY RECORD OR
+        // CREATE THE COUNTRY RECORD IF IT DOES NOT EXIST IN THE DATABASE
+        [HttpPut("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> UpdateCountry(int id, [FromBody] UpdateCountryDTO countryDTO)
+        {
+            if (!ModelState.IsValid || id < 1)
+            {
+                _logger.LogError($"Invalid Update Attempt in {nameof(UpdateCountry)}");
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var country = await _unitOfWork.Countries.Get(r => r.Id == id);
+
+                if (country == null)
+                {
+                    _logger.LogError($"Invalid Post Attempt In {nameof(UpdateCountry)}");
+                    return BadRequest("Submitted Data Is Invalid");
+                }
+
+                // map the change
+                _mapper.Map(countryDTO, country);
+                // inform the database to track the update made
+                _unitOfWork.Countries.Update(country);
+                // save/comit the change in the database
+                await _unitOfWork.Save();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+
+                _logger.LogError(ex, $"Something went wrong with the {nameof(UpdateCountry)}");
+                return StatusCode(500, "Internal Server Error. Please Try Again Later.");
+            }
+        }
+
+        // CONSTRUCTING DELETE ENDPOINT TO DELETE A COUNTRY RECORD FROM THE DATABASE
+        [Authorize]
+        [HttpDelete("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DeleteCountry(int id)
+        {
+            if (id < 1)
+            {
+                _logger.LogError($"Invalid Delete Attempt In {nameof(DeleteCountry)}");
+                return BadRequest("Submitted Data Is Invalid");
+            }
+
+            try
+            {
+                var country = await _unitOfWork.Countries.Get(r => r.Id == id);
+
+                if (country == null)
+                {
+                    _logger.LogError($"Invalid Delete Attempt In {nameof(DeleteCountry)}");
+                    return BadRequest("Submitted Data Is Invalid");
+                }
+
+                await _unitOfWork.Countries.Delete(id);
+                await _unitOfWork.Save();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+
+                _logger.LogError(ex, $"Something went wrong with the {nameof(DeleteCountry)}");
+                return StatusCode(500, "Internal Server Error. Please Try Again Later.");
+            }
+        }
+
+
     }
 
 
     // Now we can go on to create Hotel API Controller
-    
+
 }
 
 // Now we can go register the Controller in the boot strapper "program.cs" file, just below the "builder.Services.AddAutoMapper(typeof(MapperInitializer));" line code.

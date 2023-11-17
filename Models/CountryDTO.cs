@@ -68,6 +68,17 @@ namespace HotelListing_Api.Models
         public string ShortName { get; set; }
     }
 
+    // CONSTRUCTING PUT ENDPOINT TO UPDATE A COUNTRY RECORD OR
+    // CREATE THE COUNTRY RECORD IF IT DOES NOT EXIST IN THE DATABASE
+    // here, in order to maintain the single responsibility rule and not to have the CreateCountryDTO Type field in the UpdateCountry Method parameter,
+    // we will need to create another DTO "UpdateCountryDTO" and simply make it inherit from the "CreateCountryDTO" in order to possess the same members
+    public class UpdateCountryDTO : CreateCountryDTO
+    {
+        // here we will also include a field of IList of Type <CreateHotelDTO> instaed of <HotelDTO> (this is because with HotelDTO we will need to include the id, while with CreateHotelDTO we do not as it is added automatically), to enable us also update a list of hotels
+        // along with the country
+        public IList<CreateHotelDTO> Hotels { get; set; }
+    }
+
     // here we since both are actually similar, with the difference being that the CountryDTO includes the "id" field,
     // then we can simply just make the CountryDTO inherit from the CreateCountryDTO
     public class CountryDTO : CreateCountryDTO
@@ -79,6 +90,7 @@ namespace HotelListing_Api.Models
         // and also the field here does ot need to be virtual as done in the Country.cs file
         public IList<HotelDTO> Hotels { get; set; }
     }
+
     
 }
 

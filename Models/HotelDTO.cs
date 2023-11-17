@@ -16,10 +16,11 @@ namespace HotelListing_Api.Models
         public string Address { get; set; }
 
         [Required]
-        [Range(1, 5)]
+        [Range(1,5)]
         public double Rating { get; set; }
 
-        [Required]
+        // we will make this not required so as not to require a countryid in the Hotel when adding a Hotel entry from the UpdateCountry
+        // [Required]
         public int CountryId { get; set; }
 
         // Note that here we do not need provide a field for the foreignkey object since the user does not need to interract with it 
@@ -33,7 +34,16 @@ namespace HotelListing_Api.Models
         // we will need to create a field to hold the object of type ContryDTO as done below
         public CountryDTO Country { get; set; }
     }
-    
+
+    // CONSTRUCTING PUT ENDPOINT TO UPDATE A HOTEL RECORD OR
+    // CREATE THE HOTEL RECORD IF IT DOES NOT EXIST IN THE DATABASE
+    // here, in order to maintain the single responsibility rule and not to have the CreateHotelDTO Type field in the UpdateHotel Method parameter,
+    // we will need to create another DTO "UpdateHotelDTO" and simply make it inherit from the "CreateHotelDTO" in order to possess the same members
+    public class UpdateHotelDTO : CreateHotelDTO
+    {
+
+    }
+
 }
 
 // Note also that for the Mapping to work Seemlessly, the DTO models field names must match the field names in the actual Data Classes

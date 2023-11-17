@@ -1,12 +1,7 @@
 ﻿using HotelListing_Api.Data;
 using HotelListing_Api.IRepository;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 using System.Linq.Expressions;
-using System.Runtime.ExceptionServices;
-using System.Threading.Tasks;
 
 namespace HotelListing_Api.Repository
 {
