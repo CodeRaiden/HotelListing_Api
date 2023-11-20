@@ -3,6 +3,7 @@ using HotelListing_Api.Data;
 using HotelListing_Api.IRepository;
 using HotelListing_Api.Models;
 using HotelListing_Api.Repository;
+using Marvin.Cache.Headers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -45,17 +46,33 @@ namespace HotelListing_Api.Controllers
 
         // First the Route Function to get all Countries
         [HttpGet]
+        // IMPLEMENTING CACHING ON AN API ENDPOINT
+        // To start chaching our resources is pretty simple
+        // what we need to do is add the response cache attribute to an endpoint, and then we set how long the cache should live for
+        // the ResponseCache duration below is set to 60 seconds.
+        // [ResponseCache(Duration = 60)]
+        // IMPLEMENTING A GLOBAL VALUE FOR THE CACHE DURATION FOR EVERY ENDPOINT IN THE APPLICATION
+        // we can use this for all the get endpoints in the application which is where there are needed them inorder to give a user access to get information from the database
+        // for a specified period of time
+        // After globally implementing the cache headers, we no longer have a need for the ResponseCache data anotation below
+        // [ResponseCache(CacheProfileName = "120SecondsDuration")]
+        // CUSTOMIZING THE ALREADY SET GLOBAL HEADERS FROM AN ENDPOINT
+        // Note that we can still customize the set global headers of any endpoint by using
+        // the "HttpCacheExpiration" and HttpCacheValidation data anotation as seen in the below
+        [HttpCacheExpiration(CacheLocation = CacheLocation.Public, MaxAge = 60)]
+        [HttpCacheValidation(MustRevalidate = false)]
         // here we can also indicate the response types which at the same time also Informs swagger of the expected response type
         // using the Data anotations below. so that swagger does not interpret it as undocumented
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetCountries()
+        public async Task<IActionResult> GetCountries([FromQuery] RequestParams requestParams)
         {
-            try
-            {
                 // here we will create a variable "var" to hold the gotten Countries and we will make sure that the execution awaits for the countries to be gotten
                 // this is where the unit of work dependency injection comes in handy
-                var countries = await _unitOfWork.Countries.GetAll();
+                // then we will just pass the requstParams as an argument in the GetAll method parenthesis here
+                // but we do not want to get rid of the original GetAll() method and so we will navigate to the IGenericRepository file and there we will create
+                // another method to handle the RequestParameters.
+                var countries = await _unitOfWork.Countries.GetPagedList(requestParams);
 
                 // we will include a variable here called "result", which will map the gotten Countries to the CountryDTO
                 // we will do this by pulling the Map class from the Injected Automapper dependency, and then we will make this map to a list "IList" of type "CountryDTO"
@@ -63,17 +80,6 @@ namespace HotelListing_Api.Controllers
                 var results = _mapper.Map<IList<CountryDTO>>(countries);
                 // and if everything goes right we want to return a 200 Ok response for the goetten IList of type CountryDTO store in the "result" variable
                 return Ok(results);
-            }
-            catch (Exception ex)
-            {
-                // here in the catch, this is where the logger becomes very important. In that we can log the error
-                // in the logger file.
-                // for example we can say "something went wrong with the name of the method of the "GetCountries""
-                _logger.LogError(ex, $"Something went wrong with the {nameof(GetCountries)}");
-                // Note that the logger file is specificaly for internal information
-                // So for the user information, we will return a 500 inetrnal server error
-                return StatusCode(500, "Internal Server Error. Please Try Again Later.");
-            }
         }
 
         // Next we will create an endpoint for getting a single Country element from the database
@@ -84,25 +90,29 @@ namespace HotelListing_Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetCountry(int id)
         {
-            try
-            {
-                // here we will create a variable "var" to hold the gotten Country and we will make sure that the execution awaits for the countries to be gotten
-                // And also in the Get function we will include the parameters as defined in the Generic Repository. The first of which is a lamda expression that must
-                // return true for the search to be successful, and the other (if added) should be an object of type "Hotels" to be stored in a list of type string note that
-                // the "Hotels" object name must match with the name defined class name defined in the IUnitOfWork "Hotel"
-                var country = await _unitOfWork.Countries.Get(country => country.Id == id, new List<string> { "Hotels" });
 
-                // here we will map a single entity of the CoutryDTO to the country instaed of an Ilist
-                var result = _mapper.Map<CountryDTO>(country);
-                // and if everything goes right we want to return a 200 Ok response for the goetten IList of type CountryDTO store in the "result" variable
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Something went wrong with the {nameof(GetCountry)}");
+            // here we will create a variable "var" to hold the gotten Country and we will make sure that the execution awaits for the countries to be gotten
+            // And also in the Get function we will include the parameters as defined in the Generic Repository. The first of which is a lamda expression that must
+            // return true for the search to be successful, and the other (if added) should be an object of type "Hotels" to be stored in a list of type string note that
+            // the "Hotels" object name must match with the name defined class name defined in the IUnitOfWork "Hotel"
 
-                return StatusCode(500, "Internal Server Error. Please Try Again Later.");
-            }
+            // TESTING THE GLOBAL EXCEPTION HANDLER
+            // So now that we have written the global exception handler to override the dotNet app error handler
+            // we can now remove all the try catch blocks in the Country and Hotel cotrollers
+            // as the app can now handle any exception thrown.
+            // we will test this by throwing a delibrate exception here
+            // also note that we no longer need the try catch below as the global exception handler will
+            // handle this for us
+
+            // the delibrate exception
+            throw new Exception();
+
+            var country = await _unitOfWork.Countries.Get(r => r.Id == id, new List<string> { "Hotels" });
+
+            // here we will map a single entity of the CoutryDTO to the country instead of an Ilist
+            var result = _mapper.Map<CountryDTO>(country);
+            // and if everything goes right we want to return a 200 Ok response for the goetten IList of type CountryDTO store in the "result" variable
+            return Ok(result);
         }
 
         // we can try the Get() method on postman using the link https://localhost:7131/api/Country/1
@@ -122,8 +132,6 @@ namespace HotelListing_Api.Controllers
                 return BadRequest(ModelState);
             }
 
-            try
-            {
                 // map the coutryDTO to the Country Database Model 
                 var country = _mapper.Map<Country>(countryDTO);
                 // Insert the country entry into the database
@@ -131,13 +139,6 @@ namespace HotelListing_Api.Controllers
                 // comit the change
                 await _unitOfWork.Save();
                 return CreatedAtRoute("GetCountry", new { id = country.Id }, country);
-            }
-            catch (Exception ex)
-            {
-
-                _logger.LogError(ex, $"Something went wrong with the {nameof(CreateCountry)}");
-                return StatusCode(500, "Internal Server Error. Please Try Again Later.");
-            }
         }
 
 
@@ -155,31 +156,22 @@ namespace HotelListing_Api.Controllers
                 return BadRequest(ModelState);
             }
 
-            try
+            var country = await _unitOfWork.Countries.Get(r => r.Id == id);
+
+            if (country == null)
             {
-                var country = await _unitOfWork.Countries.Get(r => r.Id == id);
-
-                if (country == null)
-                {
-                    _logger.LogError($"Invalid Post Attempt In {nameof(UpdateCountry)}");
-                    return BadRequest("Submitted Data Is Invalid");
-                }
-
-                // map the change
-                _mapper.Map(countryDTO, country);
-                // inform the database to track the update made
-                _unitOfWork.Countries.Update(country);
-                // save/comit the change in the database
-                await _unitOfWork.Save();
-
-                return NoContent();
+                _logger.LogError($"Invalid Post Attempt In {nameof(UpdateCountry)}");
+                return BadRequest("Submitted Data Is Invalid");
             }
-            catch (Exception ex)
-            {
 
-                _logger.LogError(ex, $"Something went wrong with the {nameof(UpdateCountry)}");
-                return StatusCode(500, "Internal Server Error. Please Try Again Later.");
-            }
+            // map the change
+            _mapper.Map(countryDTO, country);
+            // inform the database to track the update made
+            _unitOfWork.Countries.Update(country);
+            // save/comit the change in the database
+            await _unitOfWork.Save();
+
+            return NoContent();
         }
 
         // CONSTRUCTING DELETE ENDPOINT TO DELETE A COUNTRY RECORD FROM THE DATABASE
@@ -196,27 +188,19 @@ namespace HotelListing_Api.Controllers
                 return BadRequest("Submitted Data Is Invalid");
             }
 
-            try
+            
+            var country = await _unitOfWork.Countries.Get(r => r.Id == id);
+
+            if (country == null)
             {
-                var country = await _unitOfWork.Countries.Get(r => r.Id == id);
-
-                if (country == null)
-                {
-                    _logger.LogError($"Invalid Delete Attempt In {nameof(DeleteCountry)}");
-                    return BadRequest("Submitted Data Is Invalid");
-                }
-
-                await _unitOfWork.Countries.Delete(id);
-                await _unitOfWork.Save();
-
-                return NoContent();
+                _logger.LogError($"Invalid Delete Attempt In {nameof(DeleteCountry)}");
+                return BadRequest("Submitted Data Is Invalid");
             }
-            catch (Exception ex)
-            {
 
-                _logger.LogError(ex, $"Something went wrong with the {nameof(DeleteCountry)}");
-                return StatusCode(500, "Internal Server Error. Please Try Again Later.");
-            }
+            await _unitOfWork.Countries.Delete(id);
+            await _unitOfWork.Save();
+
+            return NoContent();
         }
 
 

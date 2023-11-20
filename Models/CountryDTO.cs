@@ -87,7 +87,7 @@ namespace HotelListing_Api.Models
 
         // since we only need to include the Hotels in the includes List when querying the database and not when creating the
         // country, then we will need to place the code for holding all the list of Hotels in the Country here in the CountryDTO
-        // and also the field here does ot need to be virtual as done in the Country.cs file
+        // and also the field here does not need to be virtual as done in the Country.cs file
         public IList<HotelDTO> Hotels { get; set; }
     }
 

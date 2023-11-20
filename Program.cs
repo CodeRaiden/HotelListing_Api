@@ -23,6 +23,9 @@ using HotelListing_Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.AspNetCore.Mvc;
+using System.Runtime.Intrinsics.X86;
+using AspNetCoreRateLimit;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -123,6 +126,23 @@ builder.Services.AddDbContext<DatabaseContext>(options =>
         op.EnableRetryOnFailure();
     }));
 
+// USING RATE LIMIT(THROTTLING) IN AN API APPLICATION
+// To allow the application to use memory cache, which will help the application
+// to store and keep track of who requested what, and how many times they have requested it, we will
+// need to add memory cache right here in the services
+builder.Services.AddMemoryCache();
+// next we will navigate to the ServiceExtensions.cs file to make some modifications in the form of including
+// the configuration for the RateLimiting
+// then we include the defined configuration for the RateLimiting as well as the service "bilder.Services.AddHttpContextAccessor();"
+builder.Services.ConfigureRateLimiting();
+builder.Services.AddHttpContextAccessor();
+// finally we are going to add the middle ware just above the "app.UseRouting();" line code
+
+// IMPLEMENTING CACHING ON AN API ENDPOINT
+// we will just replace the "builder.Services.AddResponseCaching();" line code with the cache configuration service defined in the ServiceExtensions.cs
+builder.Services.ConfigureHttpCacheHeaders();
+// next we will need to register the middle wares fpr both the AddResponseCaching() and the AddHttpCacheHeaders()
+// just above the app.UseRouting(); line code
 
 //// SECURING YOUR API
 //
@@ -225,11 +245,24 @@ builder.Services.AddScoped<IAuthManager, AuthManager>();
 
 builder.Services.AddSwaggerGen();
 
+// IMPLEMENTING API VERSIONING
+builder.Services.ConfigureVersioning();
+// after registering our ApiVersioning service here, next, we will need to create another controller "ContryV2Controller.cs" and this will be a version 2 of the Country Api
+
 // placing the AddControllers service as the last service added to our AddControllers() method, and then in the lambda operation configuration we will pull the "SerializerSettings" and then from this we will pull the "ReferenceLoopHandling"
 // (which is an Enum) and ignore it.
 // All this is actually saying is that when the web execution sees a Reference Loop happening, then it should be ignored. we will ignore this by setting the value to the set "Newtonsoft.Json.ReferenceLoopHandling.Ignore" property
-// here we will pull the "AddNewtonsoftJson" from our 
-builder.Services.AddControllers().AddNewtonsoftJson(op =>
+// here we will pull the "AddNewtonsoftJson" from our "builder.Services.AddControllers()"
+// IMPLEMENTING A GLOBAL VALUE FOR THE CACHE DURATION FOR EVERY ENDPOINT IN THE APPLICATION
+// here we will include the lambda expression in the parenthesis in order to add the global cache duration (by specifying the object name name and then creating the object of the "CacheProfile" class in which we specify the duration) to the config "cacheProfile" property
+builder.Services.AddControllers(config =>
+{
+    config.CacheProfiles.Add("120SecondsDuration", new CacheProfile
+    {
+        Duration = 120,
+        // then we can now go on to the "CountryController.cs" file and replace the ResponseCache duration "[ResponseCache(Duration = 60)]" with the specified "CacheProfile" class object/instance name in this case "120SecondsDuration" "[ResponseCache(CacheProfileName = "120SecondsDuration")]"
+    });
+}).AddNewtonsoftJson(op =>
     op.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
     );
 // Now one last thing we will need to do is to make sure that the CountryController is mapped to the CountryDTO and not the actual Domain Country Class
@@ -254,11 +287,22 @@ if (app.Environment.IsDevelopment())
 app.UseSwagger();
 app.UseSwaggerUI();
 
+app.ConfigureExceptionHandler();
+// we can go ahead to test this by throwing a false exception in the Get
+
 app.UseHttpsRedirection();
 
 // Seventh
 // Ensuring that the application knows that it should use the set cors policy "corspolicy"
 app.UseCors("AllowAll");
+
+// THE CACHING MIDDLE WARE
+app.UseResponseCaching();
+app.UseHttpCacheHeaders();
+
+
+// MIDDLE WARE FOR USING RATE LIMIT(THROTTLING) IN AN API APPLICATION
+app.UseIpRateLimiting();
 
 app.UseRouting();
 

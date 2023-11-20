@@ -1,10 +1,21 @@
-﻿using HotelListing_Api.Data;
+﻿using AspNetCoreRateLimit;
+using HotelListing_Api.Data;
+using HotelListing_Api.Models;
+using Marvin.Cache.Headers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Connections.Features;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Versioning;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using System;
 using System.Runtime.CompilerServices;
 using System.Text;
+using static System.Collections.Specialized.BitVector32;
 
 namespace HotelListing_Api
 {
@@ -86,5 +97,115 @@ namespace HotelListing_Api
                 };
             });
         }
+
+        // Global Error Handling
+        // we will be creating the configure exception handler function and we will be getting the
+        // ApplicationBuilder in it's parameter
+        public static void ConfigureExceptionHandler(this IApplicationBuilder app)
+        {
+            // the the dotNet app type parameter has it's own exception handler, so what we are doing here is 
+            // just an override to say how we really want it to operate
+            app.UseExceptionHandler(error => {
+                error.Run(async context => {
+                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    context.Response.ContentType = "application/json";
+                    // then we will create a variable to hold the context feature
+                    var contextFeature = context.Features.Get<IExceptionHandlerFeature>();
+                    // we will check using an if statement if the contextFeature variable is null i.e. if there was an error
+                    if (contextFeature != null)
+                    {
+                        // if it is not null meaning there are errors then we want to log an error message
+                        Log.Error($"Something Went Wrong In The {contextFeature.Error}");
+
+                        // then we will generate the error in a new error class
+                        await context.Response.WriteAsync(new Error
+                        {
+                            StatusCode = context.Response.StatusCode.ToString(),
+                            Message = "Internal Server Error. Please Try Again Later."
+                        }.ToString());
+                        // now after writing this here we will navigate to the programs.cs file and register the
+                        // ConfigureExceptionHandler there, just directly beneath the "app.UseSwaggerUI();" code
+                    }
+                });
+            });
+        }
+
+        // IMPLEMENTING API VERSIONING
+        public static void ConfigureVersioning(this IServiceCollection services)
+        {
+            services.AddApiVersioning(opt =>
+            {
+                // in our AddApiVersioning options body, the first thing we will do is report Api version
+                // by setting the property to true
+                // this means that there will be a header in our responses stating the current version being used
+                opt.ReportApiVersions = true;
+                // next we will assume the default version when the version to be used is unspecified by the client
+                opt.AssumeDefaultVersionWhenUnspecified = true;
+                // here we will set the default version, which in this example we will set to version 1.0
+                opt.DefaultApiVersion = new ApiVersion(1, 0);
+                // Another way to that we can get the versioning to work is to include the
+                // option for "ApiVersionReader" in the "services.AddApiVersioning" options body
+                // where we can set the value of this to a HeaderApiVersionReader object and set this to look out for the
+                // api-version key passed in the header section in postman when the API is called
+                opt.ApiVersionReader = new HeaderApiVersionReader("api-version");
+            });
+
+            // after we have done this here we can go over to the Programs.cs file and include the configuration method
+
+        }
+
+        public static void ConfigureHttpCacheHeaders(this IServiceCollection services)
+        {
+            // here we will include every service for the Cache
+            // here just for simplicity, we will include the "builder.Services.AddResponseCaching();"
+            services.AddResponseCaching();
+            // then we will include the HttpCacheHeaders service
+            services.AddHttpCacheHeaders(
+            (expirationOpt) =>
+            {
+                expirationOpt.MaxAge = 120;
+                expirationOpt.CacheLocation = CacheLocation.Private;
+            },
+            (validationOpt) =>
+            {
+                validationOpt.MustRevalidate = true;
+            });
+            // now after making these modifications to the "services.AddHttpCacheHeaders()" we can now remove the cache header
+            // from the CountryController GetCountries endpoint since we have made it global here.
+            // next we will just replace the "builder.Services.AddResponseCaching();" line code with this configuration service
+        }
+
+        public static void ConfigureRateLimiting(this IServiceCollection services)
+        {
+            // we create a variable to hold a list of type "RateLimitRule"
+            var rateLimitRules = new List<RateLimitRule>
+            {
+                // Note that we can add rules for each endpoint where we will specify the endpoint and then
+                // the limit call per second/ per minute/ per hour etc rule for calls to that endpoint
+                // but here we set a global rule for all endpoints in the application
+                new RateLimitRule
+                {
+                    // here we specify that we want this rule adhered to by all endpoints in the application
+                    Endpoint = "*",
+                    // and the rule is limited to 1 call for a period of 5 seconds
+                    Limit = 1,
+                    Period = "5s"
+                }
+            };
+            // here we configure the IpRateLimitOptions and set the GeneralRules to the "rateLimitRules" rule we just defined
+            services.Configure<IpRateLimitOptions>(opt =>
+            {
+                opt.GeneralRules = rateLimitRules;
+            });
+            // And finally here we will include the AddSingletons below which are just bits of code that are required to support the
+            // library that we imported "AspNetCoreRateLimit". Note a deferent library may require a diferent support, but these are the once required by this library
+            services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
+            services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
+            services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+            services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrategy>();
+        }
+
+        // after we are done with this we will head back to the Programs.cs file and include the service configuration for "builder.Services.ConfigureRateLimiting()" and
+        // the servie "builder.Services.AddHttpContextAccessor();"
     }
 }

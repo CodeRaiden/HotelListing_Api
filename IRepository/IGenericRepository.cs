@@ -1,4 +1,6 @@
-﻿using System.Linq.Expressions;
+﻿using HotelListing_Api.Models;
+using System.Linq.Expressions;
+using X.PagedList;
 
 namespace HotelListing_Api.IRepository
 {
@@ -16,6 +18,14 @@ namespace HotelListing_Api.IRepository
             Func<IQueryable<T>, IOrderedQueryable<T>> orderBy = null,
             List<string> includes = null
             );
+
+        // HANDLING PAGINATION
+        // Adding another Task GetAll() method of <IPagedList> of Type <T> to handle the RequestParams for the GetCountries() method in the CountryCountroller
+        // this will take in the "includes" and the "requstParams" as arguments
+        Task<IPagedList<T>> GetPagedList(
+            RequestParams requsetParams,
+            List<string> includes = null);
+        // then we go and implement this in the GenericRepository.cs file
 
         // We will also include a follow up functionality which will be responsible for retrieving only a single entry from the entered Table/Type
         Task<T> Get(Expression<Func<T, bool>> expression, List<string>? includes = null);

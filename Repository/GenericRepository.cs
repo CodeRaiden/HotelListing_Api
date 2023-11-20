@@ -1,7 +1,10 @@
 ﻿using HotelListing_Api.Data;
 using HotelListing_Api.IRepository;
+using HotelListing_Api.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using System.Linq.Expressions;
+using X.PagedList;
 
 namespace HotelListing_Api.Repository
 {
@@ -109,6 +112,33 @@ namespace HotelListing_Api.Repository
             // really care about it.
             // but here in this case really we do not want to use the "firstordefaultasync" but instead we want to make it go to a list using the TolistAsync() method
             return await query.AsNoTracking().ToListAsync();
+        }
+
+        // HANDLING PAGINATION
+        // Adding another Task GetAll() method of <IPagedList> of Type <T> (which we will call "GetPagedList") to handle the RequestParams for the GetCountries() method in the CountryCountroller
+        // this will take in the "includes" and the "requstParams" as arguments
+
+        // to take care of the red squiddly lines beneath the "IPagedList", we will need to install the Nuget package
+        // "X.PagedList.Mvc.Core"
+        public async Task<IPagedList<T>> GetPagedList(RequestParams requestParams, List<string> includes = null)
+        {
+            IQueryable<T> query = _db;
+
+            // This is similar to the GetAll() method but without the expression and the orderBy codes
+
+            if (includes != null)
+            {
+                foreach (var includedProperty in includes)
+                {
+                    query = query.Include(includedProperty);
+                }
+
+            }
+
+            // here the IpagedList allows us to get the data in a PagedList by using the ToPagedListAsync() as seen below
+            // the "ToPagedListAsync()" takes in two parameters; the first is the pageNumber, and the second is the pageSize
+            // and these two are located in the RequestParams Class/Type
+            return await query.AsNoTracking().ToPagedListAsync(requestParams.PageNumber, requestParams.PageSize);
         }
 
         public async Task Insert(T entity)
